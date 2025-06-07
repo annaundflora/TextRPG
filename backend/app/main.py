@@ -1,0 +1,230 @@
+"""
+TextRPG Backend - Phase 1 Foundation Chatbot
+FastAPI Server mit SSE Streaming Support
+"""
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
+import logging
+import structlog
+
+from .config import settings
+from .utils import get_startup_info
+from .services import close_llm_service
+
+# Configure structured logging
+structlog.configure(
+    processors=[
+        structlog.dev.ConsoleRenderer(),
+    ],
+    wrapper_class=structlog.make_filtering_bound_logger(
+        getattr(logging, settings.log_level.upper())
+    ),
+    logger_factory=structlog.WriteLoggerFactory(),
+    cache_logger_on_first_use=True,
+)
+
+logger = structlog.get_logger()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan management"""
+    logger.info("TextRPG Backend starting up...")
+    
+    # Startup Validation
+    startup_info = get_startup_info()
+    logger.info("Startup validation completed", **startup_info)
+    
+    if not startup_info["ready_for_startup"]:
+        logger.warning("Configuration issues detected", 
+                      config_errors=startup_info["configuration"]["errors"],
+                      env_issues=startup_info["environment"]["issues"])
+    
+    yield
+    
+    # Cleanup
+    logger.info("TextRPG Backend shutting down...")
+    await close_llm_service()
+    logger.info("LLM Service closed")
+
+
+# FastAPI App Instance
+app = FastAPI(
+    title="TextRPG Backend",
+    description="Generatives TextRPG mit AI-Agenten - Phase 1 Foundation",
+    version="1.0.0-phase1",
+    lifespan=lifespan
+)
+
+# CORS Configuration für Development
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["*"],
+)
+
+
+@app.get("/")
+async def root():
+    """Health check endpoint"""
+    return {
+        "message": "TextRPG Backend - Phase 1 Foundation", 
+        "status": "running",
+        "version": "1.0.0-phase1"
+    }
+
+
+@app.get("/health")
+async def health_check():
+    """Detailed health check with CORS headers"""
+    logger.info("🏥 Health check requested")
+    
+    return {
+        "status": "healthy",
+        "phase": "1 - Foundation Chatbot",
+        "features": [
+            "Basic FastAPI Setup",
+            "CORS Configuration", 
+            "Structured Logging",
+            "Pydantic Settings Management",
+            "Ready for LangGraph Integration"
+        ],
+        "config": {
+            "debug": settings.debug,
+            "log_level": settings.log_level,
+            "llm_default": settings.llm_default,
+            "cors_origins": settings.cors_origins
+        },
+        "timestamp": logger.info("✅ Health check completed")
+    }
+
+
+# Test LLM Service Integration für Phase 1
+from .services import get_llm_service, LLMServiceException
+from .models import create_human_message
+from .graph import get_session_manager
+from .routes import chat_router
+
+# Include chat routes
+app.include_router(chat_router)
+
+@app.get("/test-llm")
+async def test_llm_service():
+    """Test endpoint für LLM Service Integration"""
+    try:
+        llm_service = await get_llm_service()
+        
+        # Simple test message
+        test_messages = [
+            create_human_message("Hallo! Kannst du mir in einem Satz erklären, was ein TextRPG ist?")
+        ]
+        
+        # Test chat completion
+        response = await llm_service.chat_completion(test_messages)
+        
+        return {
+            "status": "success",
+            "test": "LLM Service Integration",
+            "model_used": response.metadata.get("model", "unknown"),
+            "response": response.content,
+            "response_length": len(response.content),
+            "metadata": response.metadata
+        }
+        
+    except LLMServiceException as e:
+        logger.error("LLM Service test failed", error=e.to_dict())
+        return {
+            "status": "error", 
+            "test": "LLM Service Integration",
+            "error_type": e.error_type.value,
+            "error_message": e.message,
+            "recoverable": e.recoverable
+        }
+    except Exception as e:
+        logger.error("Unexpected error in LLM test", error=str(e))
+        return {
+            "status": "error",
+            "test": "LLM Service Integration", 
+            "error_message": f"Unexpected error: {str(e)}"
+        }
+
+
+@app.get("/test-workflow")
+async def test_workflow():
+    """Test endpoint für LangGraph Workflow Integration"""
+    try:
+        session_manager = await get_session_manager()
+        
+        # Create test session
+        session_id = session_manager.create_session()
+        
+        # Initialize session (welcome message)
+        state = await session_manager.initialize_session(session_id)
+        
+        # Process test message
+        updated_state = await session_manager.process_message(
+            session_id, 
+            "Hallo! Ich möchte das TextRPG-System testen."
+        )
+        
+        return {
+            "status": "success",
+            "test": "LangGraph Workflow Integration",
+            "session_id": session_id,
+            "message_count": updated_state.total_messages,
+            "messages": [
+                {
+                    "type": msg.type,
+                    "content": msg.content,
+                    "timestamp": msg.timestamp.isoformat()
+                }
+                for msg in updated_state.messages
+            ],
+            "session_info": session_manager.get_session_info(session_id)
+        }
+        
+    except Exception as e:
+        logger.error("Workflow test failed", error=str(e))
+        return {
+            "status": "error",
+            "test": "LangGraph Workflow Integration",
+            "error_message": f"Workflow test failed: {str(e)}"
+        }
+
+
+@app.get("/sessions")
+async def get_all_sessions():
+    """Get overview of all active sessions"""
+    try:
+        session_manager = await get_session_manager()
+        sessions = session_manager.get_all_sessions()
+        
+        return {
+            "status": "success",
+            "total_sessions": len(sessions),
+            "sessions": sessions
+        }
+        
+    except Exception as e:
+        logger.error("Failed to get sessions", error=str(e))
+        return {
+            "status": "error",
+            "error_message": str(e)
+        }
+
+# Route imports will be added in subsequent tasks
+# from app.routes import chat
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "app.main:app",
+        host=settings.api_host,
+        port=settings.api_port,
+        reload=settings.reload,
+        log_level=settings.log_level
+    ) 

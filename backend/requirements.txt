@@ -1,0 +1,33 @@
+# FastAPI und ASGI Server
+fastapi
+uvicorn[standard]
+
+# LangChain und LangGraph - Latest Versions
+langchain
+langchain-community
+langchain-core
+langgraph
+
+# HTTP Client für OpenRouter
+httpx
+aiohttp
+
+# Pydantic für Data Validation
+pydantic
+pydantic-settings
+
+# Environment Variable Management
+python-dotenv
+
+# CORS Support
+python-multipart
+
+# UUID Generation
+uuid6
+
+# Logging
+structlog
+
+# Development Dependencies (Optional)
+# pytest
+# pytest-asyncio 
