@@ -15,7 +15,8 @@ from .state import (
     ChatSession,
     ChatState,
     StateUpdate,
-    SessionInfo
+    SessionInfo,
+    AgentType
 )
 
 from .converters import (
@@ -41,6 +42,7 @@ __all__ = [
     "ChatState", 
     "StateUpdate",
     "SessionInfo",
+    "AgentType",
     
     # Converters
     "pydantic_to_langchain",

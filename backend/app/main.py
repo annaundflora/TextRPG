@@ -55,28 +55,33 @@ async def lifespan(app: FastAPI):
     logger.info("TextRPG Backend starting up...")
     
     # Startup Validation
-    startup_info = get_startup_info()
-    logger.info("Startup validation completed", **startup_info)
-    
-    if not startup_info["ready_for_startup"]:
-        logger.warning("Configuration issues detected", 
-                      config_errors=startup_info["configuration"]["errors"],
-                      env_issues=startup_info["environment"]["issues"])
+    try:
+        startup_info = get_startup_info()
+        logger.info("Startup validation completed", **startup_info)
+        
+        if not startup_info["ready_for_startup"]:
+            logger.warning("Configuration issues detected", 
+                          config_errors=startup_info["configuration"]["errors"],
+                          env_issues=startup_info["environment"]["issues"])
+    except Exception as e:
+        logger.error("Startup validation failed", error=str(e))
     
     yield
     
     # Cleanup
     logger.info("TextRPG Backend shutting down...")
-    await close_llm_service()
-    logger.info("LLM Service closed")
+    try:
+        await close_llm_service()
+        logger.info("LLM Service closed")
+    except Exception as e:
+        logger.error("Error during shutdown", error=str(e))
 
 
 # FastAPI App Instance
 app = FastAPI(
     title="TextRPG Backend",
     description="Generatives TextRPG mit AI-Agenten - Phase 1 Foundation",
-    version="1.0.0-phase1",
-    lifespan=lifespan
+    version="1.0.0-phase1"
 )
 
 # CORS Configuration für Development

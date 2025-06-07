@@ -3,6 +3,16 @@
  * Type-safe Definitionen für Chat System und SSE Communication
  */
 
+// === Agent Types ===
+export type AgentType = 'story_creator' | 'gamemaster';
+
+export interface AgentInfo {
+    current_agent: AgentType | null;
+    transition_trigger: string | null;
+    story_context: string | null;
+    character_info: Record<string, any> | null;
+}
+
 // === Message Types ===
 export interface ChatMessage {
     id: string;
@@ -10,6 +20,7 @@ export interface ChatMessage {
     content: string;
     timestamp: string;
     metadata?: Record<string, any>;
+    agent?: AgentType;
 }
 
 export interface MessageProps {
@@ -25,6 +36,7 @@ export interface ChatSession {
     last_activity: string;
     total_messages: number;
     processing: boolean;
+    agent_info?: AgentInfo;
 }
 
 export interface SessionInfo {
@@ -80,6 +92,8 @@ export interface SSECompletion extends SSEBaseEvent {
     total_chunks: number;
     message_count: number;
     complete_response: string;
+    agent?: AgentType;
+    transition_trigger?: string;
 }
 
 export interface SSEError extends SSEBaseEvent {
@@ -105,6 +119,8 @@ export interface UseChatState {
     error: string | null;
     isTyping: boolean;
     typingMessage: string;
+    currentAgent: AgentType | null;
+    agentInfo: AgentInfo | null;
 }
 
 export interface UseChatActions {

@@ -223,6 +223,8 @@ export class SSEService {
                 console.log('AI response completed:', {
                     total_chunks: event.total_chunks,
                     message_count: event.message_count,
+                    agent: event.agent,
+                    transition_trigger: event.transition_trigger,
                 });
                 // Mark completion
                 if (this.onMessageHandler) {
@@ -236,6 +238,8 @@ export class SSEService {
                             total_chunks: event.total_chunks,
                             complete_response: event.complete_response,
                             session_id: event.session_id,
+                            agent: event.agent,
+                            transition_trigger: event.transition_trigger,
                         }
                     });
                 }

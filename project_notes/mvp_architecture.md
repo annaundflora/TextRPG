@@ -132,7 +132,7 @@ workflow.add_edge("chat", END)
 **Agent Implementation:**
 - Story Creator Agent mit vollständigem Prompt aus `prompt_story_creator.md`
 - Gamemaster Agent mit vollständigem Prompt aus `prompt_game_master.md`
-- Agent-spezifische LLM Models (LLM_CREATOR, LLM_GAMEMASTER)
+- Agent-spezifische LLM Models (.env: LLM_CREATOR, LLM_GAMEMASTER)
 - Transition Logic zwischen Agents
 
 **Advanced LangGraph:**

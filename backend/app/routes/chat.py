@@ -129,12 +129,7 @@ async def stream_chat(
             if not state:
                 raise ValueError("Session not found")
             
-            # Add user message to state
-            state.last_user_message = message
-            state.processing = True
-            session_manager.update_session(new_session_id, state)
-            
-            # Send user message confirmation
+            # Send user message confirmation first
             user_msg_data = {
                 "type": "user_message",
                 "content": message,
@@ -142,30 +137,12 @@ async def stream_chat(
             }
             yield f"data: {json.dumps(user_msg_data)}\n\n"
             
-            # Get LangChain LLM service for streaming (mit LangSmith tracing)
-            from ..services import get_langchain_llm_service
-            llm_service = get_langchain_llm_service()
-            
-            # Add user message to state (wird dann vom generic_chat_node verarbeitet)
-            # WICHTIG: Nicht doppelt hinzufügen - der Node macht das
-            from ..models import create_human_message
-            if not state.messages or state.messages[-1].content != message:
-                user_message = create_human_message(message)
-                state.add_message(user_message)
-            
-            # Prepare messages for LLM
-            recent_messages = state.get_recent_messages(limit=10)
-            
-            # Stream AI response
+            # Process via Agent-Workflow with streaming
             complete_response = ""
             chunk_count = 0
             
-            async for chunk in llm_service.stream_completion(
-                messages=recent_messages,
-                session_id=new_session_id,  # Session-Tracing für LangSmith
-                temperature=0.7,
-                max_tokens=1500
-            ):
+            # Use SessionManager's stream_process_message 
+            async for chunk in session_manager.stream_process_message(new_session_id, message):
                 complete_response += chunk
                 chunk_count += 1
                 
@@ -183,27 +160,18 @@ async def stream_chat(
                 # Small delay to prevent overwhelming
                 await asyncio.sleep(0.01)
             
-            # Add complete AI response to state
-            from ..models import create_ai_message
-            ai_response = create_ai_message(
-                complete_response,
-                metadata={
-                    "streaming": True,
-                    "chunk_count": chunk_count,
-                    "model": llm_service.config.llm_default
-                }
-            )
-            state.add_message(ai_response)
-            state.processing = False
-            session_manager.update_session(new_session_id, state)
+            # Get updated session state for metadata
+            updated_state = session_manager.get_session(new_session_id)
             
-            # Send completion signal
+            # Send completion signal with agent metadata
             completion_data = {
                 "type": "completion",
                 "session_id": new_session_id,
                 "total_chunks": chunk_count,
-                "message_count": state.total_messages,
-                "complete_response": complete_response
+                "message_count": updated_state.total_messages if updated_state else 0,
+                "complete_response": complete_response,
+                "agent": updated_state.current_agent if updated_state else None,
+                "transition_trigger": updated_state.transition_trigger if updated_state else None
             }
             
             yield f"data: {json.dumps(completion_data)}\n\n"

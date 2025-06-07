@@ -3,10 +3,11 @@ TextRPG Session Manager
 Verwaltet Chat Sessions und LangGraph State
 """
 
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, AsyncGenerator
 import structlog
 from datetime import datetime
 import uuid
+import asyncio
 
 from ..models import ChatState, ChatMessage, create_human_message
 from .workflow import get_workflow
@@ -28,8 +29,8 @@ class SessionManager:
     async def initialize(self) -> None:
         """Initialisiert Workflow"""
         if self.workflow is None:
-            self.workflow = get_workflow()
-            logger.info("Session Manager initialized with workflow")
+            self.workflow = get_workflow("2")  # Use Phase 2 Agent Workflow
+            logger.info("Session Manager initialized with Phase 2 Agent Workflow")
     
     def create_session(self, session_id: Optional[str] = None) -> str:
         """
@@ -189,6 +190,114 @@ class SessionManager:
             self.update_session(session_id, state)
             
             raise
+    
+    async def stream_process_message(
+        self,
+        session_id: str,
+        user_message: str
+    ) -> AsyncGenerator[str, None]:
+        """
+        Verarbeitet User Message durch LangGraph Workflow mit Streaming
+        
+        Args:
+            session_id: Session ID
+            user_message: User input
+            
+        Yields:
+            AI response chunks
+            
+        Raises:
+            ValueError: Wenn Session nicht existiert
+        """
+        
+        if self.workflow is None:
+            await self.initialize()
+        
+        # Get or create session
+        state = self.get_session(session_id)
+        if state is None:
+            self.create_session(session_id)
+            state = self.get_session(session_id)
+        
+        try:
+            logger.info("Streaming message through workflow", 
+                       session_id=session_id,
+                       message_length=len(user_message))
+            
+            # Add user message to state before processing
+            from ..models import create_human_message
+            if not state.messages or state.messages[-1].content != user_message:
+                user_msg = create_human_message(user_message)
+                state.add_message(user_msg)
+            
+            # Set user message and processing flag
+            state.last_user_message = user_message
+            state.processing = True
+            
+            # Stream through workflow using astream_events
+            complete_response = ""
+            async for event in self.workflow.astream_events(
+                state,
+                version="v1",
+                include_names=["story_creator", "gamemaster"]  # Include agent nodes
+            ):
+                if event["event"] == "on_llm_stream":
+                    chunk = event["data"]["chunk"]
+                    if hasattr(chunk, 'content') and chunk.content:
+                        complete_response += chunk.content
+                        yield chunk.content
+                elif event["event"] == "on_chain_stream":
+                    # Handle any chain-level streaming
+                    if "output" in event["data"]:
+                        chunk = str(event["data"]["output"])
+                        if chunk and chunk not in complete_response:
+                            complete_response += chunk
+                            yield chunk
+            
+            # If no streaming events, fall back to regular processing
+            if not complete_response:
+                result = await self.workflow.ainvoke(state)
+                updated_state = ChatState(**result)
+                
+                # Get the last AI message
+                if updated_state.messages:
+                    last_message = updated_state.messages[-1]
+                    if hasattr(last_message, 'content') and last_message.type == "ai":
+                        complete_response = last_message.content
+                        
+                        # Yield response in chunks for consistency
+                        chunk_size = 50
+                        for i in range(0, len(complete_response), chunk_size):
+                            chunk = complete_response[i:i + chunk_size]
+                            yield chunk
+                            await asyncio.sleep(0.01)  # Small delay
+                
+                # Update session with final result
+                updated_state.session_id = session_id
+                self.update_session(session_id, updated_state)
+            else:
+                # For streaming, we need to manually update the session
+                # Re-run workflow to get final state
+                result = await self.workflow.ainvoke(state)
+                updated_state = ChatState(**result)
+                updated_state.session_id = session_id
+                self.update_session(session_id, updated_state)
+            
+            logger.info("Message streamed successfully", 
+                       session_id=session_id,
+                       response_length=len(complete_response))
+            
+        except Exception as e:
+            logger.error("Error streaming message", 
+                        session_id=session_id,
+                        error=str(e))
+            
+            # Reset processing flag on error
+            state.processing = False
+            self.update_session(session_id, state)
+            
+            # Yield error message
+            yield f"Fehler beim Verarbeiten der Nachricht: {str(e)}"
     
     async def initialize_session(self, session_id: str) -> ChatState:
         """

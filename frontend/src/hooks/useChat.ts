@@ -6,6 +6,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createSSEService, sseService } from '../services/sseService';
 import type {
+    AgentInfo,
+    AgentType,
     APIError,
     ChatConfig,
     ChatMessage,
@@ -29,6 +31,8 @@ export const useChat = (options: UseChatOptions = {}): UseChatReturn => {
     const [error, setError] = useState<string | null>(null);
     const [isTyping, setIsTyping] = useState(false);
     const [typingMessage, setTypingMessage] = useState('');
+    const [currentAgent, setCurrentAgent] = useState<AgentType | null>(null);
+    const [agentInfo, setAgentInfo] = useState<AgentInfo | null>(null);
 
     // Refs
     const sseServiceRef = useRef(options.config ? createSSEService(options.config) : sseService);
@@ -57,8 +61,13 @@ export const useChat = (options: UseChatOptions = {}): UseChatReturn => {
                 // Handle AI streaming chunk
                 handleAIChunk(message.content, message.metadata.chunk_id);
             } else if (message.type === 'system' && message.metadata?.type === 'completion') {
-                // Handle completion signal
-                handleStreamCompletion(message.metadata.complete_response, message.metadata.session_id);
+                // Handle completion signal with agent info
+                handleStreamCompletion(
+                    message.metadata.complete_response,
+                    message.metadata.session_id,
+                    message.metadata.agent,
+                    message.metadata.transition_trigger
+                );
             } else if (message.type === 'system' && message.metadata?.type === 'stream_done') {
                 // Handle [DONE] signal - immediate ready state
                 console.log('🎯 useChat: Stream DONE signal received - setting ready state');
@@ -165,7 +174,12 @@ export const useChat = (options: UseChatOptions = {}): UseChatReturn => {
     /**
      * Handle Stream Completion
      */
-    const handleStreamCompletion = useCallback((completeResponse: string, sessionId: string | null) => {
+    const handleStreamCompletion = useCallback((
+        completeResponse: string,
+        sessionId: string | null,
+        agent?: AgentType,
+        transitionTrigger?: string
+    ) => {
         setIsTyping(false);
         setTypingMessage('');
         // Entfernt: setIsLoading(false) - war nicht nötig da wir isLoading nicht mehr setzen
@@ -195,6 +209,21 @@ export const useChat = (options: UseChatOptions = {}): UseChatReturn => {
         // Update session ID if received
         if (sessionId && sessionId !== currentSession) {
             setCurrentSession(sessionId);
+        }
+
+        // Update agent information
+        if (agent) {
+            console.log('🤖 useChat: Agent updated:', agent);
+            setCurrentAgent(agent);
+        }
+
+        if (transitionTrigger || agent) {
+            setAgentInfo(prev => ({
+                current_agent: agent || prev?.current_agent || null,
+                transition_trigger: transitionTrigger || null,
+                story_context: prev?.story_context || null,
+                character_info: prev?.character_info || null,
+            }));
         }
 
         // Reset streaming message
@@ -298,6 +327,8 @@ export const useChat = (options: UseChatOptions = {}): UseChatReturn => {
         setError(null);
         setIsTyping(false);
         setTypingMessage('');
+        setCurrentAgent(null);
+        setAgentInfo(null);
         currentStreamingMessageRef.current = '';
 
         // Clear any pending timeouts
@@ -340,6 +371,8 @@ export const useChat = (options: UseChatOptions = {}): UseChatReturn => {
         error,
         isTyping,
         typingMessage,
+        currentAgent,
+        agentInfo,
 
         // Actions
         sendMessage,

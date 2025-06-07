@@ -6,6 +6,7 @@
 import React from 'react';
 import { useChat } from '../hooks';
 import type { ChatContainerProps } from '../types';
+import AgentStatus from './AgentStatus';
 import ConnectionStatus from './ConnectionStatus';
 import MessageInput from './MessageInput';
 import MessageList from './MessageList';
@@ -23,6 +24,8 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
         error,
         isTyping,
         typingMessage,
+        currentAgent,
+        agentInfo,
         sendMessage,
         createNewSession,
         clearChat,
@@ -138,6 +141,14 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
                 </div>
             </header>
 
+            {/* Agent Status */}
+            <div className="px-6 py-3 bg-dark-800/50 border-b border-dark-200/10">
+                <AgentStatus
+                    currentAgent={currentAgent}
+                    agentInfo={agentInfo}
+                />
+            </div>
+
             {/* Chat Messages */}
             <MessageList
                 messages={messages}
@@ -172,6 +183,8 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
                         <div>Connected: <span className={isConnected ? 'text-green-400' : 'text-red-400'}>{isConnected ? 'Yes' : 'No'}</span></div>
                         <div>Loading: <span className={isLoading ? 'text-yellow-400' : 'text-dark-400'}>{isLoading ? 'Yes' : 'No'}</span></div>
                         <div>Typing: <span className={isTyping ? 'text-blue-400' : 'text-dark-400'}>{isTyping ? 'Yes' : 'No'}</span></div>
+                        <div>Agent: <span className="text-purple-400">{currentAgent || 'None'}</span></div>
+                        <div>Transition: <span className="text-orange-400">{agentInfo?.transition_trigger || 'None'}</span></div>
                         {error && <div className="text-red-400 mt-2 text-wrap">Error: {error}</div>}
                     </div>
                 </div>
