@@ -59,6 +59,13 @@ export const useChat = (options: UseChatOptions = {}): UseChatReturn => {
             } else if (message.type === 'system' && message.metadata?.type === 'completion') {
                 // Handle completion signal
                 handleStreamCompletion(message.metadata.complete_response, message.metadata.session_id);
+            } else if (message.type === 'system' && message.metadata?.type === 'stream_done') {
+                // Handle [DONE] signal - immediate ready state
+                console.log('🎯 useChat: Stream DONE signal received - setting ready state');
+                setIsConnected(true);
+                setError(null);
+                // Entfernt: setIsLoading(false) - war nicht nötig da wir isLoading nicht mehr setzen
+                setIsTyping(false);
             } else {
                 // Handle regular message
                 setMessages(prev => [...prev, message]);
@@ -69,7 +76,7 @@ export const useChat = (options: UseChatOptions = {}): UseChatReturn => {
         service.onError((error: SSEConnectionError | APIError) => {
             console.error('❌ useChat: SSE Error received:', error);
             setError(error.message);
-            setIsLoading(false);
+            // Entfernt: setIsLoading(false) - war nicht nötig da wir isLoading nicht mehr setzen
             setIsTyping(false);
             setTypingMessage('');
         });
@@ -77,14 +84,24 @@ export const useChat = (options: UseChatOptions = {}): UseChatReturn => {
         // Connection Handler
         service.onConnection((status: ConnectionStatus) => {
             console.log('🔗 useChat: Connection status changed:', status);
-            setIsConnected(status === 'connected');
 
             if (status === 'connected') {
                 console.log('✅ useChat: Connection established, clearing errors');
+                setIsConnected(true);
                 setError(null);
+            } else if (status === 'disconnected') {
+                // Nach [DONE] signal wird das über stream_done message gehandelt
+                // Hier nur echte disconnects behandeln
+                console.log('📡 useChat: SSE disconnected (will be handled by stream_done if successful)');
+                // Nicht sofort auf false setzen - wird von stream_done überschrieben falls erfolgreich
             } else if (status === 'error') {
                 console.log('❌ useChat: Connection failed, stopping loading');
-                setIsLoading(false);
+                setIsConnected(false);
+                // Entfernt: setIsLoading(false) - war nicht nötig da wir isLoading nicht mehr setzen
+            } else if (status === 'connecting') {
+                console.log('🔄 useChat: Connecting...');
+                // Entfernt: setIsConnected(false) - soll verfügbar bleiben während Verbindungsaufbau
+                setError(null);
             }
         });
 
@@ -151,7 +168,7 @@ export const useChat = (options: UseChatOptions = {}): UseChatReturn => {
     const handleStreamCompletion = useCallback((completeResponse: string, sessionId: string | null) => {
         setIsTyping(false);
         setTypingMessage('');
-        setIsLoading(false);
+        // Entfernt: setIsLoading(false) - war nicht nötig da wir isLoading nicht mehr setzen
 
         // Clear timeout
         if (typingTimeoutRef.current) {
@@ -182,6 +199,12 @@ export const useChat = (options: UseChatOptions = {}): UseChatReturn => {
 
         // Reset streaming message
         currentStreamingMessageRef.current = '';
+
+        // WICHTIG: Nach erfolgreichem Stream-Completion sind wir bereit für die nächste Nachricht
+        // SSE disconnect nach [DONE] ist normal - wir setzen Status auf "ready" 
+        console.log('✅ useChat: Stream completed successfully, ready for next message');
+        setIsConnected(true); // Service ist bereit für nächste Verbindung
+        setError(null); // Keine Fehler mehr
     }, [currentSession]);
 
     /**
@@ -197,7 +220,7 @@ export const useChat = (options: UseChatOptions = {}): UseChatReturn => {
 
         try {
             console.log('🔄 useChat: Starting message send process...');
-            setIsLoading(true);
+            // Entfernt: setIsLoading(true) - Input soll verfügbar bleiben
             setError(null);
 
             // Add user message to chat
@@ -227,7 +250,7 @@ export const useChat = (options: UseChatOptions = {}): UseChatReturn => {
         } catch (error) {
             console.error('💥 useChat: Failed to send message:', error);
             setError(error instanceof Error ? error.message : 'Failed to send message');
-            setIsLoading(false);
+            // Entfernt: setIsLoading(false) - war nicht nötig da wir isLoading nicht mehr setzen
             setIsTyping(false);
         }
     }, [currentSession]);

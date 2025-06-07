@@ -8,15 +8,16 @@ import structlog
 from datetime import datetime
 
 from ..models import ChatState, ChatMessage, create_human_message, create_ai_message
-from ..services import get_llm_service, LLMServiceException
+from ..services import get_langchain_llm_service, LLMServiceException
 
 logger = structlog.get_logger()
 
 
 async def generic_chat_node(state: ChatState) -> Dict[str, Any]:
     """
-    Generic Chat Node für Phase 1
+    Generic Chat Node für Phase 1 mit LangChain LLM Service
     Verarbeitet User-Input und generiert AI-Response ohne Agent-Switching
+    Vollständiges LangSmith Tracing durch LangChain Integration
     
     Args:
         state: Current ChatState
@@ -26,7 +27,7 @@ async def generic_chat_node(state: ChatState) -> Dict[str, Any]:
     """
     
     try:
-        logger.info("Processing generic chat node", 
+        logger.info("Processing generic chat node with LangChain LLM", 
                    session_id=state.session_id,
                    message_count=len(state.messages),
                    last_user_message=state.last_user_message)
@@ -36,24 +37,31 @@ async def generic_chat_node(state: ChatState) -> Dict[str, Any]:
             logger.warning("No user message to process", session_id=state.session_id)
             return {"processing": False}
         
-        # Add user message to conversation if not already present
-        if not state.messages or state.messages[-1].content != state.last_user_message:
+        # User message sollte bereits vom caller (chat.py/session_manager) hinzugefügt worden sein
+        # Zusätzliche Validierung, aber keine doppelte Hinzufügung
+        if not state.messages or state.messages[-1].type != "human":
+            logger.warning("Expected user message in conversation history", 
+                          session_id=state.session_id,
+                          last_message_type=state.messages[-1].type if state.messages else "none")
+            # Fallback: Add user message if somehow missing
             user_message = create_human_message(state.last_user_message)
             state.add_message(user_message)
         
-        # Get LLM Service
-        llm_service = await get_llm_service()
+        # Get LangChain LLM Service (for LangSmith tracing)
+        llm_service = get_langchain_llm_service()
         
         # Prepare messages for LLM (get recent context)
         recent_messages = state.get_recent_messages(limit=10)
         
-        logger.info("Calling LLM for chat completion", 
+        logger.info("Calling LangChain LLM for chat completion", 
                    session_id=state.session_id,
-                   context_messages=len(recent_messages))
+                   context_messages=len(recent_messages),
+                   langsmith_tracing=True)
         
-        # Generate AI response
+        # Generate AI response mit LangChain (wird von LangSmith getrackt)
         ai_response = await llm_service.chat_completion(
             messages=recent_messages,
+            session_id=state.session_id,  # Session-Tracing für LangSmith
             temperature=0.7,
             max_tokens=1500
         )
@@ -61,10 +69,11 @@ async def generic_chat_node(state: ChatState) -> Dict[str, Any]:
         # Add AI response to conversation
         state.add_message(ai_response)
         
-        logger.info("Chat completion successful", 
+        logger.info("LangChain chat completion successful", 
                    session_id=state.session_id,
                    response_length=len(ai_response.content),
-                   model_used=ai_response.metadata.get("model", "unknown"))
+                   model_used=ai_response.metadata.get("model", "unknown"),
+                   langchain_traced=True)
         
         # Update state
         return {
@@ -76,12 +85,14 @@ async def generic_chat_node(state: ChatState) -> Dict[str, Any]:
                 **state.metadata,
                 "last_model_used": ai_response.metadata.get("model"),
                 "last_response_tokens": ai_response.metadata.get("usage", {}).get("completion_tokens"),
-                "last_completion_time": datetime.utcnow().isoformat()
+                "last_completion_time": datetime.utcnow().isoformat(),
+                "langchain_service": True,
+                "langsmith_traced": True
             }
         }
         
     except LLMServiceException as e:
-        logger.error("LLM service error in chat node", 
+        logger.error("LangChain LLM service error in chat node", 
                     session_id=state.session_id,
                     error_type=e.error_type.value,
                     error_message=e.message)
@@ -90,7 +101,7 @@ async def generic_chat_node(state: ChatState) -> Dict[str, Any]:
         error_message = create_ai_message(
             f"Entschuldigung, es gab ein Problem bei der Verarbeitung deiner Nachricht. "
             f"Fehler: {e.message}",
-            metadata={"error": True, "error_type": e.error_type.value}
+            metadata={"error": True, "error_type": e.error_type.value, "langchain_service": True}
         )
         
         state.add_message(error_message)
@@ -103,19 +114,20 @@ async def generic_chat_node(state: ChatState) -> Dict[str, Any]:
             "metadata": {
                 **state.metadata,
                 "last_error": e.to_dict(),
-                "last_error_time": datetime.utcnow().isoformat()
+                "last_error_time": datetime.utcnow().isoformat(),
+                "langchain_service": True
             }
         }
         
     except Exception as e:
-        logger.error("Unexpected error in chat node", 
+        logger.error("Unexpected error in LangChain chat node", 
                     session_id=state.session_id,
                     error=str(e))
         
         # Create generic error response
         error_message = create_ai_message(
             "Entschuldigung, es gab einen unerwarteten Fehler. Bitte versuche es erneut.",
-            metadata={"error": True, "error_type": "unexpected_error"}
+            metadata={"error": True, "error_type": "unexpected_error", "langchain_service": True}
         )
         
         state.add_message(error_message)
@@ -128,7 +140,8 @@ async def generic_chat_node(state: ChatState) -> Dict[str, Any]:
             "metadata": {
                 **state.metadata,
                 "last_error": {"type": "unexpected_error", "message": str(e)},
-                "last_error_time": datetime.utcnow().isoformat()
+                "last_error_time": datetime.utcnow().isoformat(),
+                "langchain_service": True
             }
         }
 

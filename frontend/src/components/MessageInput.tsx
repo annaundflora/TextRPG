@@ -46,6 +46,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
             // Reset textarea height
             if (inputRef.current) {
                 inputRef.current.style.height = 'auto';
+                // Re-focus input field nach dem Senden
+                inputRef.current.focus();
             }
         }
     };

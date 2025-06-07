@@ -154,6 +154,12 @@ class SessionManager:
                        session_id=session_id,
                        message_length=len(user_message))
             
+            # Add user message to state before processing
+            from ..models import create_human_message
+            if not state.messages or state.messages[-1].content != user_message:
+                user_msg = create_human_message(user_message)
+                state.add_message(user_msg)
+            
             # Set user message and processing flag
             state.last_user_message = user_message
             state.processing = True

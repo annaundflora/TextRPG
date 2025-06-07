@@ -39,6 +39,31 @@ class Settings(BaseSettings):
         description="Gamemaster Agent Model"
     )
     
+    # LangSmith Configuration
+    langsmith_tracing: bool = Field(
+        default=False,
+        alias="LANGSMITH_TRACING",
+        description="Enable LangSmith Tracing"
+    )
+    
+    langsmith_api_key: Optional[str] = Field(
+        default=None,
+        alias="LANGSMITH_API_KEY", 
+        description="LangSmith API Key"
+    )
+    
+    langsmith_endpoint: str = Field(
+        default="https://eu.api.smith.langchain.com",
+        alias="LANGSMITH_ENDPOINT",
+        description="LangSmith API Endpoint"
+    )
+    
+    langsmith_project: str = Field(
+        default="TextRPG",
+        alias="LANGSMITH_PROJECT",
+        description="LangSmith Project Name"
+    )
+    
     # API Configuration
     api_host: str = Field(default="0.0.0.0", description="FastAPI Host")
     api_port: int = Field(default=8000, description="FastAPI Port")

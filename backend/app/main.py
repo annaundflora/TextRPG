@@ -3,29 +3,50 @@ TextRPG Backend - Phase 1 Foundation Chatbot
 FastAPI Server mit SSE Streaming Support
 """
 
+import os
+import asyncio
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator
+
+import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
-import logging
-import structlog
+from fastapi.responses import JSONResponse
 
 from .config import settings
 from .utils import get_startup_info
 from .services import close_llm_service
 
+# Explizit Environment Variables für LangSmith setzen BEVOR LangChain importiert wird
+if settings.langsmith_tracing:
+    os.environ["LANGSMITH_TRACING"] = str(settings.langsmith_tracing).lower()
+    
+if settings.langsmith_api_key:
+    os.environ["LANGSMITH_API_KEY"] = settings.langsmith_api_key
+    
+os.environ["LANGSMITH_ENDPOINT"] = settings.langsmith_endpoint  
+os.environ["LANGSMITH_PROJECT"] = settings.langsmith_project
+
 # Configure structured logging
 structlog.configure(
     processors=[
-        structlog.dev.ConsoleRenderer(),
+        structlog.contextvars.merge_contextvars,
+        structlog.processors.add_log_level,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.dev.ConsoleRenderer()
     ],
-    wrapper_class=structlog.make_filtering_bound_logger(
-        getattr(logging, settings.log_level.upper())
-    ),
-    logger_factory=structlog.WriteLoggerFactory(),
+    wrapper_class=structlog.make_filtering_bound_logger(20),  # INFO level
+    logger_factory=structlog.PrintLoggerFactory(),
     cache_logger_on_first_use=True,
 )
 
 logger = structlog.get_logger()
+
+# Log LangSmith Konfiguration
+logger.info("LangSmith configuration loaded",
+           tracing_enabled=settings.langsmith_tracing,
+           project=settings.langsmith_project,
+           endpoint=settings.langsmith_endpoint)
 
 
 @asynccontextmanager
@@ -104,7 +125,7 @@ async def health_check():
 
 
 # Test LLM Service Integration für Phase 1
-from .services import get_llm_service, LLMServiceException
+from .services import get_langchain_llm_service, LLMServiceException
 from .models import create_human_message
 from .graph import get_session_manager
 from .routes import chat_router
@@ -114,9 +135,9 @@ app.include_router(chat_router)
 
 @app.get("/test-llm")
 async def test_llm_service():
-    """Test endpoint für LLM Service Integration"""
+    """Test endpoint für LangChain LLM Service Integration mit LangSmith Tracing"""
     try:
-        llm_service = await get_llm_service()
+        llm_service = get_langchain_llm_service()
         
         # Simple test message
         test_messages = [
@@ -128,28 +149,32 @@ async def test_llm_service():
         
         return {
             "status": "success",
-            "test": "LLM Service Integration",
+            "test": "LangChain LLM Service Integration",
             "model_used": response.metadata.get("model", "unknown"),
             "response": response.content,
             "response_length": len(response.content),
-            "metadata": response.metadata
+            "metadata": response.metadata,
+            "langchain_service": True,
+            "langsmith_tracing": True
         }
         
     except LLMServiceException as e:
         logger.error("LLM Service test failed", error=e.to_dict())
         return {
             "status": "error", 
-            "test": "LLM Service Integration",
+            "test": "LangChain LLM Service Integration",
             "error_type": e.error_type.value,
             "error_message": e.message,
-            "recoverable": e.recoverable
+            "recoverable": e.recoverable,
+            "langchain_service": True
         }
     except Exception as e:
         logger.error("Unexpected error in LLM test", error=str(e))
         return {
             "status": "error",
-            "test": "LLM Service Integration", 
-            "error_message": f"Unexpected error: {str(e)}"
+            "test": "LangChain LLM Service Integration", 
+            "error_message": f"Unexpected error: {str(e)}",
+            "langchain_service": True
         }
 
 

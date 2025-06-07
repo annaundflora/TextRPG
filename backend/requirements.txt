@@ -6,6 +6,7 @@ uvicorn[standard]
 langchain
 langchain-community
 langchain-core
+langchain-openai
 langgraph
 
 # HTTP Client für OpenRouter

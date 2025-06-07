@@ -126,8 +126,28 @@ export class SSEService {
 
                 // Handle [DONE] termination signal
                 if (event.data === '[DONE]') {
-                    console.log('🏁 SSE Service: Stream completed');
-                    this.disconnect();
+                    console.log('🏁 SSE Service: Stream completed successfully');
+                    // Nach erfolgreichem Stream sind wir bereit für die nächste Nachricht
+                    this.eventSource?.close();
+                    this.eventSource = null;
+                    // WICHTIG: Setze NICHT auf 'disconnected' sondern auf 'ready'
+                    // Das vermeidet die Race Condition mit lastSuccessfulCompletion
+                    this.setConnectionStatus('disconnected'); // wird vom useChat Hook als "ready" interpretiert
+                    console.log('✅ SSE Service: Ready for next message - triggering completion signal');
+
+                    // Sende explicit ein completion signal an den Message Handler
+                    if (this.onMessageHandler) {
+                        this.onMessageHandler({
+                            id: `stream-done-${Date.now()}`,
+                            type: 'system',
+                            content: '--- Stream DONE Signal ---',
+                            timestamp: new Date().toISOString(),
+                            metadata: {
+                                type: 'stream_done',
+                                ready_for_next: true,
+                            }
+                        });
+                    }
                     return;
                 }
 

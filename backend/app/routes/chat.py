@@ -142,19 +142,19 @@ async def stream_chat(
             }
             yield f"data: {json.dumps(user_msg_data)}\n\n"
             
-            # Get LLM service for streaming
-            from ..services import get_llm_service
-            llm_service = await get_llm_service()
+            # Get LangChain LLM service for streaming (mit LangSmith tracing)
+            from ..services import get_langchain_llm_service
+            llm_service = get_langchain_llm_service()
+            
+            # Add user message to state (wird dann vom generic_chat_node verarbeitet)
+            # WICHTIG: Nicht doppelt hinzufügen - der Node macht das
+            from ..models import create_human_message
+            if not state.messages or state.messages[-1].content != message:
+                user_message = create_human_message(message)
+                state.add_message(user_message)
             
             # Prepare messages for LLM
             recent_messages = state.get_recent_messages(limit=10)
-            
-            # Add user message if not already in conversation
-            from ..models import create_human_message
-            if not recent_messages or recent_messages[-1].content != message:
-                user_message = create_human_message(message)
-                recent_messages.append(user_message)
-                state.add_message(user_message)
             
             # Stream AI response
             complete_response = ""
@@ -162,6 +162,7 @@ async def stream_chat(
             
             async for chunk in llm_service.stream_completion(
                 messages=recent_messages,
+                session_id=new_session_id,  # Session-Tracing für LangSmith
                 temperature=0.7,
                 max_tokens=1500
             ):

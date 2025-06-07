@@ -9,6 +9,12 @@ from .llm_service import (
     close_llm_service
 )
 
+from .langchain_llm_service import (
+    LangChainLLMService,
+    get_langchain_llm_service,
+    close_langchain_llm_service
+)
+
 from .exceptions import (
     LLMServiceException,
     LLMErrorType,
@@ -24,10 +30,15 @@ from .exceptions import (
 )
 
 __all__ = [
-    # LLM Service
+    # HTTP-based LLM Service (legacy)
     "LLMService",
     "get_llm_service", 
     "close_llm_service",
+    
+    # LangChain-based LLM Service (für LangSmith Tracing)
+    "LangChainLLMService",
+    "get_langchain_llm_service",
+    "close_langchain_llm_service",
     
     # Exceptions
     "LLMServiceException",

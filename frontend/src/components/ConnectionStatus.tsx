@@ -13,8 +13,8 @@ const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
     onReconnect,
     className = '',
 }) => {
-    // Don't render if everything is fine
-    if (isConnected && !isLoading && !error) {
+    // Don't render if everything is fine - isLoading wird nicht mehr für Chat-Messages verwendet
+    if (isConnected && !error) {
         return null;
     }
 
@@ -29,14 +29,7 @@ const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
             };
         }
 
-        if (isLoading) {
-            return {
-                color: 'yellow',
-                icon: '⏳',
-                message: 'Verbindung wird hergestellt...',
-                canReconnect: false,
-            };
-        }
+        // isLoading wird nicht mehr für Chat-Messages verwendet, daher entfernt
 
         if (!isConnected) {
             return {
@@ -62,7 +55,6 @@ const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
             className={`
         w-full bg-dark-800 border-t rounded-t-lg p-2 
         ${status.color === 'red' ? 'border-red-500/50 bg-red-900/20' : ''}
-        ${status.color === 'yellow' ? 'border-yellow-500/50 bg-yellow-900/20' : ''}
         ${status.color === 'green' ? 'border-green-500/50 bg-green-900/20' : ''}
         ${className}
       `}
@@ -73,7 +65,7 @@ const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
                     <div className="text-sm">{status.icon}</div>
                     <div
                         className={`text-sm font-medium ${status.color === 'red' ? 'text-red-400' : ''
-                            } ${status.color === 'yellow' ? 'text-yellow-400' : ''} ${status.color === 'green' ? 'text-green-400' : ''
+                            } ${status.color === 'green' ? 'text-green-400' : ''
                             }`}
                     >
                         {status.message}
