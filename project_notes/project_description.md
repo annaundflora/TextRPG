@@ -11,6 +11,7 @@ Ein außergewöhnliches TextRPG entwickeln, das durch generative Kapitel einen h
 * Generative Kapitel: Creator Agent erstellt fesselnde Story-Abschnitte
 * Interaktive Aktionen: Gamemaster Agent verarbeitet Spielerentscheidungen
 * Dynamische Fortsetzung: Nahtloser Wechsel zwischen narrativen und interaktiven Phasen
+* Die Anzahl der Schritte pro Phase können vorher nicht bestimmt werden und hängen von der Spieler Interaktion und den Handlungen sowie dem Storyverlauf ab
 
 ### Technische Architektur
 

@@ -185,45 +185,16 @@ async def test_llm_service():
 
 @app.get("/test-workflow")
 async def test_workflow():
-    """Test endpoint für LangGraph Workflow Integration"""
-    try:
-        session_manager = await get_session_manager()
-        
-        # Create test session
-        session_id = session_manager.create_session()
-        
-        # Initialize session (welcome message)
-        state = await session_manager.initialize_session(session_id)
-        
-        # Process test message
-        updated_state = await session_manager.process_message(
-            session_id, 
-            "Hallo! Ich möchte das TextRPG-System testen."
-        )
-        
-        return {
-            "status": "success",
-            "test": "LangGraph Workflow Integration",
-            "session_id": session_id,
-            "message_count": updated_state.total_messages,
-            "messages": [
-                {
-                    "type": msg.type,
-                    "content": msg.content,
-                    "timestamp": msg.timestamp.isoformat()
-                }
-                for msg in updated_state.messages
-            ],
-            "session_info": session_manager.get_session_info(session_id)
-        }
-        
-    except Exception as e:
-        logger.error("Workflow test failed", error=str(e))
-        return {
-            "status": "error",
-            "test": "LangGraph Workflow Integration",
-            "error_message": f"Workflow test failed: {str(e)}"
-        }
+    """
+    Test endpoint für LangGraph Workflow Integration
+    DISABLED: Referenziert gelöschte Session Manager Methoden
+    """
+    return {
+        "status": "disabled",
+        "test": "LangGraph Workflow Integration", 
+        "message": "This endpoint is disabled as it references removed session manager methods",
+        "recommendation": "Use /chat/stream endpoint for testing workflow"
+    }
 
 
 @app.get("/sessions")

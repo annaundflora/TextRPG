@@ -184,6 +184,9 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
                         <div>Loading: <span className={isLoading ? 'text-yellow-400' : 'text-dark-400'}>{isLoading ? 'Yes' : 'No'}</span></div>
                         <div>Typing: <span className={isTyping ? 'text-blue-400' : 'text-dark-400'}>{isTyping ? 'Yes' : 'No'}</span></div>
                         <div>Agent: <span className="text-purple-400">{currentAgent || 'None'}</span></div>
+                        <div>Phase: <span className="text-cyan-400">{agentInfo?.game_phase || 'Unknown'}</span></div>
+                        <div>Setup: <span className={agentInfo?.setup_complete ? 'text-green-400' : 'text-yellow-400'}>{agentInfo?.setup_complete ? 'Complete' : 'Pending'}</span></div>
+                        <div>Actions: <span className="text-indigo-400">{agentInfo?.action_count || 0}</span></div>
                         <div>Transition: <span className="text-orange-400">{agentInfo?.transition_trigger || 'None'}</span></div>
                         {error && <div className="text-red-400 mt-2 text-wrap">Error: {error}</div>}
                     </div>

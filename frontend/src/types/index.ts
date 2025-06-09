@@ -11,6 +11,12 @@ export interface AgentInfo {
     transition_trigger: string | null;
     story_context: string | null;
     character_info: Record<string, any> | null;
+    // Phase 2 Completion: New debug fields
+    game_phase?: 'setup' | 'story' | 'gameplay';
+    setup_complete?: boolean;
+    action_count?: number;
+    has_character_info?: boolean;
+    has_story_context?: boolean;
 }
 
 // === Message Types ===

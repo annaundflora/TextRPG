@@ -4,20 +4,13 @@ LangGraph Workflows & Nodes für Chat Processing
 """
 
 from .workflow import (
-    create_chat_workflow,
     create_agent_workflow,
     compile_workflow,
     get_workflow,
-    get_phase2_workflow,
-    reset_workflow_cache,
-    determine_initial_agent
+    reset_workflow_cache
 )
 
-from .nodes import (
-    generic_chat_node,
-    start_node,
-    should_continue
-)
+# Old nodes.py removed - using simplified nodes_agents.py instead
 
 from .nodes_agents import (
     story_creator_node,
@@ -32,18 +25,13 @@ from .session_manager import (
 
 __all__ = [
     # Workflow
-    "create_chat_workflow",
     "create_agent_workflow",
     "compile_workflow", 
     "get_workflow",
-    "get_phase2_workflow",
     "reset_workflow_cache",
-    "determine_initial_agent",
     
     # Nodes
-    "generic_chat_node",
-    "start_node",
-    "should_continue",
+# Removed old node functions
     
     # Agent Nodes (Phase 2)
     "story_creator_node",

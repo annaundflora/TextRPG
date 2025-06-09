@@ -40,6 +40,24 @@ BEISPIEL-FORMAT:
 
 WICHTIG: Verwende IMMER genau den Marker "--- HANDLUNGSOPTIONEN ---" am Ende!"""
         
+    def process_message(self, messages: list[BaseMessage], state: Dict[str, Any]) -> Tuple[str, bool, Optional[str]]:
+        """Override to add debugging"""
+        logger.info(f"Story Creator: Processing {len(messages)} messages")
+        for i, msg in enumerate(messages):
+            msg_type = type(msg).__name__
+            content_preview = msg.content[:100] if hasattr(msg, 'content') else str(msg)[:100]
+            logger.info(f"  Message[{i}]: {msg_type} - {content_preview}")
+        
+        logger.info(f"Story Creator: State keys: {list(state.keys())}")
+        
+        # Call parent process_message
+        response_text, should_transition, transition_trigger = super().process_message(messages, state)
+        
+        logger.info(f"Story Creator: Generated response of length {len(response_text)}")
+        logger.info(f"Story Creator: Response preview: {response_text[:200]}")
+        
+        return response_text, should_transition, transition_trigger
+        
     def detect_transition(self, response: str) -> Tuple[bool, Optional[str]]:
         """
         Prüft ob zum Gamemaster gewechselt werden soll.

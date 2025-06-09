@@ -49,6 +49,16 @@ class BaseAgent(ABC):
                     full_messages.append({"role": "user", "content": msg.content})
                 elif isinstance(msg, AIMessage):
                     full_messages.append({"role": "assistant", "content": msg.content})
+                elif hasattr(msg, 'type') and hasattr(msg, 'content'):
+                    # Handle ChatMessage objects
+                    if msg.type == "human":
+                        full_messages.append({"role": "user", "content": msg.content})
+                    elif msg.type == "ai":
+                        full_messages.append({"role": "assistant", "content": msg.content})
+                    elif msg.type == "system":
+                        full_messages.append({"role": "system", "content": msg.content})
+                else:
+                    logger.warning(f"Unknown message type: {type(msg)}")
             
             # LLM Aufruf
             response = self.llm.invoke(full_messages)

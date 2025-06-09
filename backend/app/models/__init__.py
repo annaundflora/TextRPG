@@ -14,7 +14,6 @@ from .messages import (
 from .state import (
     ChatSession,
     ChatState,
-    StateUpdate,
     SessionInfo,
     AgentType
 )
@@ -40,7 +39,6 @@ __all__ = [
     # State Models
     "ChatSession",
     "ChatState", 
-    "StateUpdate",
     "SessionInfo",
     "AgentType",
     
