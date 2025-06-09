@@ -1,11 +1,11 @@
 """
-TextRPG Session Manager
-Verwaltet Chat Sessions und LangGraph State
+TextRPG Session Manager - Command Pattern Migration
+Verwaltet Chat Sessions für Command-basierte LangGraph Workflows
 """
 
 from typing import Dict, Optional, Any, AsyncGenerator
 import structlog
-from datetime import datetime
+from datetime import datetime, timedelta
 import uuid
 import asyncio
 
@@ -18,7 +18,7 @@ logger = structlog.get_logger()
 class SessionManager:
     """
     Verwaltet aktive Chat Sessions und deren State
-    In-Memory Storage für Phase 1 (Phase 2: persistent storage)
+    Command Pattern Migration - Vereinfachtes Session Management
     """
     
     def __init__(self):
@@ -27,10 +27,10 @@ class SessionManager:
         self.workflow = None
     
     async def initialize(self) -> None:
-        """Initialisiert Workflow"""
+        """Initialisiert Command Pattern Workflow"""
         if self.workflow is None:
-            self.workflow = get_workflow()  # Use simplified Agent Workflow
-            logger.info("Session Manager initialized with simplified Agent Workflow")
+            self.workflow = get_workflow()
+            logger.info("Session Manager initialized with Command Pattern Workflow")
     
     def create_session(self, session_id: Optional[str] = None) -> str:
         """
@@ -46,7 +46,7 @@ class SessionManager:
         if session_id is None:
             session_id = str(uuid.uuid4())
         
-        # Create initial state - simplified for MVP
+        # Create initial state für Command Pattern
         state = ChatState(
             session_id=session_id,
             messages=[],
@@ -54,8 +54,7 @@ class SessionManager:
             created_at=datetime.utcnow(),
             last_updated=datetime.utcnow(),
             processing=False,
-            current_agent=None,
-            last_user_message=""
+            current_agent=None
         )
         
         self.active_sessions[session_id] = state
@@ -128,150 +127,120 @@ class SessionManager:
         user_message: str
     ) -> AsyncGenerator[str, None]:
         """
-        Verarbeitet User Message durch LangGraph Workflow mit echtem Token-Streaming
+        Verarbeitet eine User-Message und streamt die AI-Response.
+        Nutzt LangGraph für Agent-Transitions via Commands.
         
         Args:
             session_id: Session ID
             user_message: User input
             
         Yields:
-            AI response tokens in real-time
-            
-        Raises:
-            ValueError: Wenn Session nicht existiert
+            Streamed response characters
         """
-        
-        if self.workflow is None:
-            await self.initialize()
-
         state = self.get_session(session_id)
-        if state is None:
-            logger.warning("Session not found, creating new one.", session_id=session_id)
-            self.create_session(session_id)
-            state = self.get_session(session_id)
-
-        complete_response = ""
-        tokens_streamed = 0
+        if not state:
+            yield "Session nicht gefunden."
+            return
         
         try:
-            logger.info("Streaming message through workflow", 
-                       session_id=session_id,
-                       message_length=len(user_message))
-
-            if not state.messages or state.messages[-1].content != user_message:
-                user_msg = create_human_message(user_message)
-                state.add_message(user_msg)
-            
-            state.last_user_message = user_message
             state.processing = True
             self.update_session(session_id, state)
             
-            final_state_from_event = None
-            
-            async for event in self.workflow.astream_events(state, version="v1"):
-                kind = event["event"]
-                
-                if kind == "on_chat_model_stream":
-                    chunk = event["data"]["chunk"]
-                    if hasattr(chunk, 'content') and chunk.content:
-                        token = chunk.content
-                        complete_response += token
-                        tokens_streamed += 1
-                        yield token
-                        if tokens_streamed % 5 == 0:
-                            await asyncio.sleep(0.01)
-                
-                elif kind == "on_chain_end":
-                    if event["name"] == "LangGraph":
-                        final_state_from_event = event["data"].get("output")
-                        logger.debug("LangGraph final state received from events", session_id=session_id)
-
-            final_chat_state = state 
-            if final_state_from_event:
-                if isinstance(final_state_from_event, dict):
-                    # Extract state from nested structure
-                    state_dict = None
-                    
-                    # Check if state is nested under agent name (e.g., {'story_creator': {...}})
-                    if len(final_state_from_event) == 1:
-                        agent_key = list(final_state_from_event.keys())[0]
-                        nested_value = final_state_from_event[agent_key]
-                        if isinstance(nested_value, dict) and 'messages' in nested_value:
-                            state_dict = nested_value
-                            logger.debug(f"Extracted state from nested structure under '{agent_key}'", 
-                                       session_id=session_id)
-                    
-                    # If not nested, use directly
-                    if state_dict is None and 'messages' in final_state_from_event:
-                        state_dict = final_state_from_event
-                    
-                    # Create ChatState from dict
-                    if state_dict and 'messages' in state_dict:
-                        try:
-                            # Add required fields if missing
-                            state_dict['session_id'] = session_id
-                            if 'active' not in state_dict:
-                                state_dict['active'] = state.active
-                            if 'created_at' not in state_dict:
-                                state_dict['created_at'] = state.created_at
-                            
-                            # Convert messages
-                            from ..models import langchain_to_pydantic, ChatMessage as ChatMessageModel
-                            converted_messages = []
-                            for m in state_dict.get('messages', []):
-                                if isinstance(m, dict):
-                                    # Convert dict to ChatMessage
-                                    converted_messages.append(ChatMessageModel(**m))
-                                elif hasattr(m, 'content'):  # LangChain message
-                                    converted_messages.append(langchain_to_pydantic(m))
-                                elif isinstance(m, ChatMessageModel):
-                                    converted_messages.append(m)
-                                else:
-                                    logger.warning(f"Unknown message type: {type(m)}", session_id=session_id)
-                            
-                            state_dict['messages'] = converted_messages
-                            
-                            final_chat_state = ChatState(**state_dict)
-                            logger.info("Successfully created ChatState from workflow output", 
-                                      session_id=session_id,
-                                      message_count=len(final_chat_state.messages),
-                                      current_agent=final_chat_state.current_agent)
-                        except Exception as e:
-                            logger.error("Error creating ChatState from final event state", 
-                                       error=str(e), 
-                                       session_id=session_id)
-                    else:
-                        logger.warning("Could not extract valid state from workflow output", 
-                                     session_id=session_id)
-
-                elif hasattr(final_state_from_event, '__class__') and final_state_from_event.__class__.__name__ == 'ChatState':
-                    final_chat_state = final_state_from_event
-            else:
-                 logger.warning("No final state found in events, using original state", 
-                              session_id=session_id)
-
-            logger.info("Streaming completed, final state processed.", 
+            logger.info("Starting LangGraph workflow with Command support",
                        session_id=session_id,
-                       tokens_streamed=tokens_streamed,
-                       current_agent=final_chat_state.current_agent)
+                       message_preview=user_message[:50])
+            
+            # Füge User-Message hinzu
+            user_msg = create_human_message(user_message)
+            state.messages.append(user_msg)
+            
+            # Bereite State für LangGraph vor
+            graph_state = {
+                "session_id": state.session_id,
+                "messages": state.messages,
+                "story_phase": state.story_phase,
+                "current_agent": state.current_agent,
+                "handoff_data": state.handoff_data,
+                "chapter_count": state.chapter_count,
+                "interaction_count": state.interaction_count,
+                "active": state.active,
+                "processing": state.processing,
+                "created_at": state.created_at,
+                "last_updated": state.last_updated,
+                "end_trigger": state.end_trigger
+            }
+            
+            # LangGraph Workflow ausführen
+            result = await self.workflow.ainvoke(graph_state)
+            
+            logger.info(f"LangGraph workflow completed. Final state keys: {list(result.keys())}")
+            
+            # Extract und stream die Response
+            updated_messages = result.get("messages", [])
+            if updated_messages and len(updated_messages) > len(state.messages):
+                # Neue Messages wurden hinzugefügt
+                for new_message in updated_messages[len(state.messages):]:
+                    # Handle both ChatMessage and LangChain AIMessage objects
+                    if hasattr(new_message, 'type') and new_message.type == "ai":
+                        response_text = new_message.content
+                        logger.info(f"Using ChatMessage content: {response_text[:50]}...", session_id=session_id)
+                    elif hasattr(new_message, 'content'):
+                        # LangChain AIMessage object
+                        response_text = str(new_message.content)
+                        logger.info(f"Converting LangChain object to string: {type(new_message)}", session_id=session_id)
+                    else:
+                        response_text = str(new_message)
+                        logger.error(f"Unknown message format, converting to string: {type(new_message)}", session_id=session_id)
+                    
+                    # Ensure response_text is actually a string
+                    if not isinstance(response_text, str):
+                        response_text = str(response_text)
+                        logger.warning(f"Response was not a string, converted: {type(response_text)}", session_id=session_id)
+                    
+                    # Stream response character by character
+                    for char in response_text:
+                        yield char
+                        await asyncio.sleep(0.01)  # Simulate streaming delay
+            else:
+                response_text = "Keine Antwort erhalten."
+                yield response_text
+            
+            # Update session state mit LangGraph Result
+            state.messages = updated_messages
+            
+            # Update andere State-Felder
+            if "handoff_data" in result:
+                state.handoff_data = result["handoff_data"]
+            if "chapter_count" in result:
+                state.chapter_count = result["chapter_count"]
+            if "interaction_count" in result:
+                state.interaction_count = result["interaction_count"]
+            if "current_agent" in result:
+                state.current_agent = result["current_agent"]
+            if "story_phase" in result:
+                state.story_phase = result["story_phase"]
+            
+            state.processing = False
+            self.update_session(session_id, state)
+            
+            logger.info("LangGraph workflow streaming completed", 
+                       session_id=session_id)
 
         except Exception as e:
-            logger.error("Error in stream_process_message", 
+            logger.error("Error in LangGraph workflow processing", 
                          session_id=session_id,
                          error=str(e),
                          exc_info=True)
             yield f"\n\nEin Fehler ist aufgetreten: {str(e)}"
         
         finally:
-            # Always ensure the session is updated and not stuck in processing
-            final_chat_state.processing = False
-            # The AI response from the stream should be in the messages list from the final state
-            # No need to add it manually if the graph nodes do their job
-            self.update_session(session_id, final_chat_state)
+            # Ensure session is not stuck in processing
+            if state:
+                state.processing = False
+                self.update_session(session_id, state)
             
-            logger.info("SSE stream context finished.", 
-                       session_id=session_id, 
-                       response_length=len(complete_response))
+            logger.info("LangGraph workflow stream context finished.", 
+                       session_id=session_id)
     
     def get_session_info(self, session_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -295,7 +264,6 @@ class SessionManager:
             "created_at": state.created_at.isoformat(),
             "last_updated": state.last_updated.isoformat(),
             "processing": state.processing,
-            # Simplified for MVP
             "current_agent": state.current_agent
         }
     
@@ -322,8 +290,6 @@ class SessionManager:
         Returns:
             Anzahl gelöschter Sessions
         """
-        
-        from datetime import timedelta
         
         cutoff_time = datetime.utcnow() - timedelta(hours=max_age_hours)
         sessions_to_delete = []

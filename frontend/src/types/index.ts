@@ -4,7 +4,7 @@
  */
 
 // === Agent Types ===
-export type AgentType = 'story_creator' | 'gamemaster';
+export type AgentType = 'setup_agent' | 'gameplay_agent';
 
 export interface AgentInfo {
     current_agent: AgentType | null;

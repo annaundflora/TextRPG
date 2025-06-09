@@ -13,17 +13,17 @@ interface AgentStatusProps {
 }
 
 const AGENT_CONFIG = {
-    story_creator: {
-        name: 'Story Creator',
-        icon: '📖',
-        color: 'bg-purple-100 text-purple-800 border-purple-200',
-        description: 'Erstellt fesselnde Kapitel und Geschichten'
+    setup_agent: {
+        name: 'Setup Agent',
+        icon: '⚙️',
+        color: 'bg-green-100 text-green-800 border-green-200',
+        description: 'Sammelt Spielerpräferenzen und bereitet das Abenteuer vor'
     },
-    gamemaster: {
-        name: 'Gamemaster',
-        icon: '🎲',
-        color: 'bg-blue-100 text-blue-800 border-blue-200',
-        description: 'Verarbeitet Aktionen und bietet Handlungsoptionen'
+    gameplay_agent: {
+        name: 'Gameplay Agent',
+        icon: '🎮',
+        color: 'bg-purple-100 text-purple-800 border-purple-200',
+        description: 'Erzählt die Geschichte und verwaltet das Gameplay'
     }
 } as const;
 
@@ -68,12 +68,9 @@ export const AgentStatus: React.FC<AgentStatusProps> = ({
                 <div className="flex items-center gap-2 p-2 bg-white/50 rounded border border-current/20">
                     <span className="text-xs">🔄</span>
                     <span className="text-xs font-medium">
-                        {agentInfo.transition_trigger === 'handlungsoptionen_präsentiert' &&
-                            'Handlungsoptionen bereit - Warte auf Spieleraktion'}
-                        {agentInfo.transition_trigger === 'neues_kapitel_benötigt' &&
-                            'Neues Kapitel wird erstellt...'}
-                        {!['handlungsoptionen_präsentiert', 'neues_kapitel_benötigt'].includes(agentInfo.transition_trigger!) &&
-                            `Transition: ${agentInfo.transition_trigger}`}
+                        {currentAgent === 'setup_agent' && 'Setup läuft - sammelt Präferenzen...'}
+                        {currentAgent === 'gameplay_agent' && 'Spiel aktiv - erzählt Geschichte...'}
+                        {agentInfo.transition_trigger && `Status: ${agentInfo.transition_trigger}`}
                     </span>
                 </div>
             )}

@@ -14,8 +14,18 @@ from .messages import (
 from .state import (
     ChatSession,
     ChatState,
+    ChatStateDict,
     SessionInfo,
-    AgentType
+    AgentType,
+    StoryPhase,
+    EndTrigger
+)
+
+from .commands import (
+    CommandType,
+    AgentCommand,
+    create_goto_command,
+    create_update_command
 )
 
 from .converters import (
@@ -36,11 +46,20 @@ __all__ = [
     "ChatResponse",
     "StreamingResponse",
     
-    # State Models
+    # State Models - PRD Extended
     "ChatSession",
     "ChatState", 
+    "ChatStateDict",
     "SessionInfo",
     "AgentType",
+    "StoryPhase",
+    "EndTrigger",
+    
+    # Command Pattern Models
+    "CommandType",
+    "AgentCommand", 
+    "create_goto_command",
+    "create_update_command",
     
     # Converters
     "pydantic_to_langchain",

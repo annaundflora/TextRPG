@@ -1,80 +1,79 @@
 """
-TextRPG LangGraph Workflow - Simplified for MVP
-Vereinfachte Workflow-Definition für Agent-basiertes TextRPG
+TextRPG LangGraph Workflow - VEREINFACHTE VERSION
+Workflow für Setup und Gameplay Agents mit Command Pattern
 """
 
-from langgraph.graph import StateGraph
-try:
-    from langgraph.graph import END
-except ImportError:
-    # Fallback für unterschiedliche LangGraph Versionen
-    END = "__end__"
-import structlog
+from typing import Dict, Any, Literal
+from langgraph.graph import StateGraph, START, END
+from langgraph.types import Command
+import logging
 
-from ..models import ChatState
-from .nodes_agents import story_creator_node, gamemaster_node, determine_next_agent
+from .nodes_agents import setup_agent_node, gameplay_agent_node
 
-logger = structlog.get_logger()
+logger = logging.getLogger(__name__)
 
 
-def create_agent_workflow() -> StateGraph:
+def should_continue_to_gameplay(state: Dict[str, Any]) -> Literal["gameplay_agent", END]:
     """
-    Erstellt den vereinfachten Agent-Workflow für MVP
+    Router function für Setup Agent Output
+    LangGraph behandelt Commands automatisch, aber wir brauchen diese Funktion noch für conditional edges
+    """
+    # LangGraph übernimmt Command-Routing automatisch
+    logger.info("Default routing: ending workflow after setup")
+    return END
+
+
+def create_text_rpg_workflow() -> StateGraph:
+    """
+    Erstellt vereinfachten Workflow für TextRPG mit Command-Unterstützung
     
-    Einfacher Flow:
-    Story Creator ⟷ Gamemaster basierend auf Transition-Markern
+    Flow: Start → Setup Agent → (Command) → Gameplay Agent → End
     
     Returns:
-        StateGraph für Agent-Based Chat
+        StateGraph mit command-based routing
     """
     
-    # Create StateGraph mit ChatState
-    workflow = StateGraph(ChatState)
+    # Create StateGraph (wird dict-based state nutzen)
+    workflow = StateGraph(Dict[str, Any])
     
-    # Add Agent Nodes
-    workflow.add_node("story_creator", story_creator_node)
-    workflow.add_node("gamemaster", gamemaster_node)
+    # Add Nodes mit korrekten Namen
+    workflow.add_node("setup_agent", setup_agent_node)
+    workflow.add_node("gameplay_agent", gameplay_agent_node)
     
-    # Set Entry Point - immer Story Creator
-    workflow.set_entry_point("story_creator")
+    # Entry point: Immer Setup Agent
+    workflow.add_edge(START, "setup_agent")
     
-    # Simple Conditional Routing für beide Agents
+    # Conditional edges für Setup Agent
+    # LangGraph behandelt Command-Returns automatisch!
     workflow.add_conditional_edges(
-        "story_creator",
-        determine_next_agent,
+        "setup_agent",
+        should_continue_to_gameplay,
         {
-            "story_creator": "story_creator",
-            "gamemaster": "gamemaster",
-            "wait": END,
-            "end": END
+            "gameplay_agent": "gameplay_agent",
+            END: END
         }
     )
     
-    workflow.add_conditional_edges(
-        "gamemaster", 
-        determine_next_agent,
-        {
-            "story_creator": "story_creator",
-            "gamemaster": "gamemaster",
-            "wait": END,
-            "end": END
-        }
-    )
+    # Gameplay Agent endet normalerweise
+    workflow.add_edge("gameplay_agent", END)
+    
+    logger.info("TextRPG workflow created with Command support and correct node names")
     
     return workflow
 
 
 def compile_workflow() -> StateGraph:
     """
-    Kompiliert den Workflow für Execution
+    Kompiliert den Workflow
     
     Returns:
-        Compiled workflow ready for invocation
+        Compiled workflow
     """
     
     try:
-        workflow = create_agent_workflow()
+        workflow = create_text_rpg_workflow()
         compiled = workflow.compile()
+        logger.info("TextRPG workflow compiled successfully")
         return compiled
         
     except Exception as e:
@@ -82,7 +81,7 @@ def compile_workflow() -> StateGraph:
         raise
 
 
-# Global Workflow Instance
+# Singleton Pattern
 _compiled_workflow = None
 
 
@@ -103,7 +102,7 @@ def get_workflow() -> StateGraph:
 
 def reset_workflow_cache():
     """
-    Reset workflow cache für Testing oder Reconfiguration
+    Reset workflow cache für Testing
     """
     global _compiled_workflow
     _compiled_workflow = None 

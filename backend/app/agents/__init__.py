@@ -1,14 +1,12 @@
-# Agents Package - AI Agent Implementations 
+# Agents Package - VEREINFACHTE VERSION
 
-from .base_agent import BaseAgent
-from .story_creator import StoryCreatorAgent
-from .gamemaster import GamemasterAgent
-from .prompt_loader import get_story_creator_prompt, get_gamemaster_prompt
+from .setup_agent import SetupAgent
+from .gameplay_agent import GameplayAgent
+from .prompt_loader import load_prompt_from_file, extract_system_prompt
 
 __all__ = [
-    "BaseAgent", 
-    "StoryCreatorAgent", 
-    "GamemasterAgent",
-    "get_story_creator_prompt",
-    "get_gamemaster_prompt"
+    "SetupAgent",
+    "GameplayAgent", 
+    "load_prompt_from_file",
+    "extract_system_prompt"
 ] 
