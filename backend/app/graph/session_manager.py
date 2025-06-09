@@ -135,7 +135,7 @@ class SessionManager:
             user_message: User input
             
         Yields:
-            Streamed response characters
+            Streamed response chunks (optimized for performance)
         """
         state = self.get_session(session_id)
         if not state:
@@ -197,10 +197,23 @@ class SessionManager:
                         response_text = str(response_text)
                         logger.warning(f"Response was not a string, converted: {type(response_text)}", session_id=session_id)
                     
-                    # Stream response character by character
-                    for char in response_text:
-                        yield char
-                        await asyncio.sleep(0.01)  # Simulate streaming delay
+                    # OPTIMIZED STREAMING: Chunk text into word groups instead of single characters
+                    words = response_text.split(' ')
+                    current_chunk = ""
+                    
+                    for i, word in enumerate(words):
+                        current_chunk += word
+                        
+                        # Add space except for last word
+                        if i < len(words) - 1:
+                            current_chunk += " "
+                        
+                        # Send chunks of 3-5 words for natural reading flow
+                        if len(current_chunk.split()) >= 4 or i == len(words) - 1:
+                            if current_chunk.strip():  # Only yield non-empty chunks
+                                yield current_chunk
+                                await asyncio.sleep(0.05)  # Much faster: 20 chunks per second
+                                current_chunk = ""
             else:
                 response_text = "Keine Antwort erhalten."
                 yield response_text

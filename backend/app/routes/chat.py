@@ -101,8 +101,8 @@ async def stream_chat(
                 
                 yield f"data: {json.dumps(chunk_data)}\n\n"
                 
-                # Small delay to prevent overwhelming
-                await asyncio.sleep(0.01)
+                # Reduced delay for faster streaming (was 0.01)
+                await asyncio.sleep(0.001)
             
             # Get updated session state for metadata
             updated_state = session_manager.get_session(new_session_id)
