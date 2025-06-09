@@ -79,8 +79,8 @@ class SetupAgent:
         
         if "[SETUP-COMPLETE]" not in response:
             logger.info("No [SETUP-COMPLETE] marker found in response")
-        return None
-    
+            return None
+        
         logger.info("SETUP-COMPLETE marker detected! Creating LangGraph Command...")
         
         # Extrahiere Setup-Daten aus der Response
@@ -102,7 +102,6 @@ class SetupAgent:
             },
             goto="gameplay_agent"
         )
-
     
     def _extract_setup_data(self, response: str) -> Dict[str, Any]:
         """
