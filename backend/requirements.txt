@@ -1,6 +1,7 @@
 # FastAPI und ASGI Server
 fastapi
 uvicorn[standard]
+gunicorn
 
 # LangChain und LangGraph - Latest Versions mit Command Pattern Support
 langchain>=0.1.0
