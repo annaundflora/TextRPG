@@ -73,6 +73,11 @@ async def lifespan(app: FastAPI):
     try:
         await close_llm_service()
         logger.info("LLM Service closed")
+        
+        # Reset Agent instances
+        from .graph import reset_agent_instances
+        reset_agent_instances()
+        logger.info("Agent instances reset")
     except Exception as e:
         logger.error("Error during shutdown", error=str(e))
 

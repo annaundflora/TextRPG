@@ -29,18 +29,20 @@ class Settings(BaseSettings):
     
     # LLM Model Configuration
     llm_default: str = Field(
-        default="google/gemini-2.5-flash-preview-05-20",
+        default="google/gemini-2.5-pro-preview",
         alias="LLM_DEFAULT",
         description="Standard LLM Model für Phase 1"
     )
     
     llm_creator: str = Field(
-        default="google/gemini-2.0-flash-exp", 
+        default="google/gemini-2.5-pro-preview", 
+        alias="LLM_CREATOR",
         description="Story Creator Agent Model"
     )
     
     llm_gamemaster: str = Field(
-        default="google/gemini-2.5-flash-preview-05-20",
+        default="google/gemini-2.5-pro-preview",
+        alias="LLM_GAMEMASTER",
         description="Gamemaster Agent Model"
     )
     
@@ -93,8 +95,8 @@ class Settings(BaseSettings):
     )
 
     model_config = SettingsConfigDict(
-        # .env liegt im backend directory
-        env_file=".env",
+        # .env liegt im root directory
+        env_file="../.env",
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore"  # Ignoriere unbekannte Environment Variables

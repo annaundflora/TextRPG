@@ -429,12 +429,20 @@ def get_langchain_llm_service() -> LangChainLLMService:
     return _langchain_llm_service
 
 
-async def close_langchain_llm_service():
+def close_langchain_llm_service() -> None:
     """
-    Cleanup für LangChain LLM Service
+    Schließt und resettet LangChain LLM Service
+    Wird beim App-Shutdown oder für Konfiguration-Reload aufgerufen
     """
     global _langchain_llm_service
     
     if _langchain_llm_service is not None:
-        logger.info("Closing LangChain LLM Service")
-        _langchain_llm_service = None 
+        _langchain_llm_service.session_tracker = SessionTracker()  # Reset session tracker
+        _langchain_llm_service._default_llm = None  # Reset cached LLM instances
+        _langchain_llm_service._creator_llm = None
+        _langchain_llm_service._gamemaster_llm = None
+        _langchain_llm_service._initialized = False
+        _langchain_llm_service = None
+        logger.info("LangChain LLM Service closed and reset")
+
+ 

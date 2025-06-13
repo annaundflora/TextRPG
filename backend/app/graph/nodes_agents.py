@@ -47,6 +47,18 @@ async def get_gameplay_agent() -> GameplayAgent:
     return _gameplay_agent
 
 
+def reset_agent_instances() -> None:
+    """
+    Resettet gecachte Agent-Instanzen
+    Wird beim App-Shutdown oder für Konfiguration-Reload aufgerufen
+    """
+    global _setup_agent, _gameplay_agent
+    
+    _setup_agent = None
+    _gameplay_agent = None
+    logger.info("Agent instances reset - will use new configuration on next access")
+
+
 async def setup_agent_node(state: Dict[str, Any]) -> Union[Command[Literal["gameplay_agent"]], Dict[str, Any]]:
     """
     Setup Agent Node für LangGraph

@@ -18,7 +18,8 @@ from .nodes_agents import (
     setup_agent_node,
     gameplay_agent_node,
     get_setup_agent,
-    get_gameplay_agent
+    get_gameplay_agent,
+    reset_agent_instances
 )
 
 from .session_manager import (
